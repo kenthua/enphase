@@ -1,0 +1,28 @@
+from seleniumbase import BaseCase
+
+import os
+
+BaseCase.main(__name__, __file__)
+
+USERNAME = os.environ.get("USERNAME")
+PASSWORD = os.environ.get("PASSWORD")
+SITE_ID = os.environ.get("SITE_ID")
+WEB_VERSION = os.environ.get("WEB_VERSION")
+
+
+class RecorderTest(BaseCase):
+    def test_recording(self):
+        self.open("https://enlighten.enphaseenergy.com/")
+        self.type("input#user_email", USERNAME)
+        self.type("input#user_password", PASSWORD)
+        self.click("input#submit")
+        self.open_if_not_url(f"https://enlighten.enphaseenergy.com/web/{SITE_ID}?v={WEB_VERSION}")
+        self.click("div#browser_menu span svg")
+        self.click("div.header-menu-list > div:nth-of-type(3) > div > span > svg")
+        self.click("div#BprofileMenu div div:nth-of-type(2) div")
+        self.switch_to_frame('iframe[title="battery module"]')
+        self.click('button:contains("Edit")')
+        self.click("input#self-consumption-radio-btn")
+        self.click('button:contains("Apply")')
+        self.click("div#bp-page-profile-details")
+        self.click("div#bp-page-profile-details")
