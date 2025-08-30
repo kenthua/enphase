@@ -1,2 +1,2 @@
-seleniumbase==4.32.5
-Flask==3.0.3
+seleniumbase==4.41.3
+Flask==3.1.2
