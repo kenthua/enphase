@@ -24,8 +24,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag ${{ env.IMAGE_NAME }}
-      working-directory: src/
+      run: docker build . --file src/Dockerfile --tag ${{ env.IMAGE_NAME }}
 
     - name: Log into GitHub Container Registry
     # TODO: Create a PAT with `read:packages` and `write:packages` scopes and save it as an Actions secret `CR_PAT`
