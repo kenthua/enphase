@@ -1,17 +1,24 @@
+FROM ghcr.io/astral-sh/uv:0.13.5 AS uv-bin
+
 FROM python:3.13.7-slim
 
-RUN apt-get update && \
-    apt-get -y --no-install-recommends install wget gnupg && \
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | tee /etc/apt/trusted.gpg.d/google.asc >/dev/null && \
-    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
-    apt-get update && \
-    apt-get -y --no-install-recommends install python3-dev gcc python3-pip git google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-COPY requirements.txt /
+COPY --from=uv-bin /uv /uvx /bin/
 
-RUN pip3 install --no-cache-dir -r /requirements.txt
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    PATH="/app/.venv/bin:$PATH"
 
-COPY full_backup.py self_consumption.py web.py /
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --frozen --no-dev --no-install-project && \
+    rm -rf /root/.cache
 
-CMD python3 /web.py
+COPY src/enphase_client.py src/full_backup.py src/self_consumption.py src/ai_optimization.py src/status.py src/web.py /app/
+
+EXPOSE 8080
+
+CMD ["python3", "/app/web.py"]
