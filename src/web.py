@@ -78,9 +78,7 @@ def healthz():
     return jsonify({"status": "ok"}), 200
 
 
-@app.route("/", methods=["GET"])
 @app.route("/status", methods=["GET"])
-@app.route("/settings", methods=["GET"])
 def status():
     try:
         payload = get_client().get_status()

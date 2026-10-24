@@ -67,9 +67,8 @@ def test_healthz_route(test_client):
     assert resp.get_json() == {"status": "ok"}
 
 
-@pytest.mark.parametrize("endpoint", ["/", "/status", "/settings"])
-def test_status_and_settings_routes(test_client, mock_enphase_client, endpoint):
-    resp = test_client.get(endpoint)
+def test_status_route(test_client, mock_enphase_client):
+    resp = test_client.get("/status")
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["status"] == "ok"
@@ -82,7 +81,7 @@ def test_status_and_settings_routes(test_client, mock_enphase_client, endpoint):
     assert body["exportToGridEnabled"] is True
     assert body["chargeFromGridEnabled"] is False
     assert body["siteProfileStatus"] == "READY"
-    mock_enphase_client.get_status.assert_called()
+    mock_enphase_client.get_status.assert_called_once()
 
 
 def test_self_consumption_route(test_client, mock_enphase_client):
