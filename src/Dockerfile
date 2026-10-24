@@ -6,11 +6,14 @@ WORKDIR /app
 
 COPY --from=uv-bin /uv /uvx /bin/
 
+ARG APP_VERSION=1.1.0
+
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
+    APP_VERSION=${APP_VERSION} \
     PATH="/app/.venv/bin:$PATH"
 
 COPY pyproject.toml uv.lock /app/

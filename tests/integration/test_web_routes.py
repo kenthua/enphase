@@ -64,7 +64,9 @@ def test_client(mock_enphase_client):
 def test_healthz_route(test_client):
     resp = test_client.get("/healthz")
     assert resp.status_code == 200
-    assert resp.get_json() == {"status": "ok"}
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["version"] == "1.1.0"
 
 
 def test_status_route(test_client, mock_enphase_client):
@@ -72,6 +74,7 @@ def test_status_route(test_client, mock_enphase_client):
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["status"] == "ok"
+    assert body["version"] == "1.1.0"
     assert body["profile"] == "self-consumption"
     assert body["profileDisplayName"] == "Self-Consumption"
     assert body["batteryBackupPercentage"] == 10

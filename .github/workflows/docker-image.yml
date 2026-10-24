@@ -3,13 +3,14 @@ name: Docker Image CI
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:  
+  workflow_dispatch:
     inputs:
       version:
-        description: Test
-        default: v1.0.0
+        description: Release version tag
+        default: v1.1.0
         required: true
 
 env:
@@ -22,27 +23,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+
+    - name: Determine version
+      id: meta
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          RAW_VERSION="${{ github.event.inputs.version }}"
+        elif [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
+          RAW_VERSION="${GITHUB_REF#refs/tags/}"
+        else
+          RAW_VERSION=$(grep -E '^version\s*=' pyproject.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+        fi
+        SEMVER="${RAW_VERSION#v}"
+        V_TAG="v${SEMVER}"
+        echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
+        echo "v_tag=${V_TAG}" >> "$GITHUB_OUTPUT"
+        echo "Resolved version: ${V_TAG} (semver: ${SEMVER})"
+
     - name: Build the Docker image
-      run: docker build . --file src/Dockerfile --tag ${{ env.IMAGE_NAME }}
+      run: |
+        docker build . \
+          --file src/Dockerfile \
+          --build-arg APP_VERSION=${{ steps.meta.outputs.semver }} \
+          --tag ${{ env.IMAGE_NAME }}
 
     - name: Log into GitHub Container Registry
-    # TODO: Create a PAT with `read:packages` and `write:packages` scopes and save it as an Actions secret `CR_PAT`
+      if: github.event_name != 'pull_request'
       run: echo "${{ secrets.CR_PAT }}" | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
-    - name: Push image to GitHub Container Registry
+
+    - name: Push versioned and latest images to GitHub Container Registry
+      if: github.event_name != 'pull_request'
       env:
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        SEMVER: ${{ steps.meta.outputs.semver }}
+        V_TAG: ${{ steps.meta.outputs.v_tag }}
       run: |
-        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-        # Change all uppercase to lowercase
-        IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-        # Strip git ref prefix from version
-        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-        # Strip "v" prefix from tag name
-        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-        # Use Docker `latest` tag convention
-        [ "$VERSION" == "main" ] && VERSION=latest
-        echo IMAGE_ID=$IMAGE_ID
-        echo VERSION=$VERSION
-        docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-        docker push $IMAGE_ID:$VERSION
+        IMAGE_ID=$(echo "ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')
+        echo "Pushing $IMAGE_ID:$V_TAG, $IMAGE_ID:$SEMVER, and $IMAGE_ID:latest"
+        docker tag "$IMAGE_NAME" "$IMAGE_ID:$V_TAG"
+        docker tag "$IMAGE_NAME" "$IMAGE_ID:$SEMVER"
+        docker tag "$IMAGE_NAME" "$IMAGE_ID:latest"
+        docker push "$IMAGE_ID:$V_TAG"
+        docker push "$IMAGE_ID:$SEMVER"
+        docker push "$IMAGE_ID:latest"

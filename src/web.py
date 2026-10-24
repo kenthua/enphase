@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, Optional
 
 from flask import Flask, jsonify, request
@@ -15,6 +16,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+APP_VERSION = os.environ.get("APP_VERSION", "1.1.0")
 
 app = Flask(__name__)
 
@@ -56,6 +59,7 @@ def _format_status_response(payload: Dict[str, Any]) -> Dict[str, Any]:
     cfg = data.get("cfgControl") or {}
     return {
         "status": "ok",
+        "version": APP_VERSION,
         "timestamp": payload.get("timestamp"),
         "profile": profile,
         "profileDisplayName": PROFILE_DISPLAY_NAMES.get(profile, profile),
@@ -75,7 +79,7 @@ def _format_status_response(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.route("/healthz", methods=["GET"])
 def healthz():
-    return jsonify({"status": "ok"}), 200
+    return jsonify({"status": "ok", "version": APP_VERSION}), 200
 
 
 @app.route("/status", methods=["GET"])
