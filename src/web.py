@@ -1,9 +1,14 @@
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from flask import Flask, jsonify, request
 
-from enphase_client import EnphaseCloudClient
+from enphase_client import (
+    PROFILE_AI_OPTIMIZATION,
+    PROFILE_FULL_BACKUP,
+    PROFILE_SELF_CONSUMPTION,
+    EnphaseCloudClient,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,6 +17,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+PROFILE_DISPLAY_NAMES = {
+    PROFILE_SELF_CONSUMPTION: "Self-Consumption",
+    PROFILE_FULL_BACKUP: "Full Backup",
+    PROFILE_AI_OPTIMIZATION: "AI Optimization",
+    "cost_savings": "Savings",
+    "expert": "Expert",
+}
 
 _client: Optional[EnphaseCloudClient] = None
 
@@ -36,33 +49,42 @@ def _parse_reserve_arg() -> Optional[int]:
     return val
 
 
+def _format_status_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+    data = payload.get("data") or {}
+    profile = data.get("profile")
+    dtg = data.get("dtgControl") or {}
+    cfg = data.get("cfgControl") or {}
+    return {
+        "status": "ok",
+        "timestamp": payload.get("timestamp"),
+        "profile": profile,
+        "profileDisplayName": PROFILE_DISPLAY_NAMES.get(profile, profile),
+        "batteryBackupPercentage": data.get("batteryBackupPercentage"),
+        "operationModeSubType": data.get("operationModeSubType"),
+        "stormGuardState": data.get("stormGuardState"),
+        "buybackExportPlan": data.get("buybackExportPlan"),
+        "veryLowSoc": data.get("veryLowSoc"),
+        "exportToGridEnabled": dtg.get("enabled"),
+        "chargeFromGridEnabled": cfg.get("enabled"),
+        "isBatteryChangePending": data.get("isBatteryChangePending"),
+        "siteProfileStatus": data.get("siteProfileStatus"),
+        "previousBatteryBackupPercentage": data.get("previousBatteryBackupPercentage"),
+        "data": data,
+    }
+
+
 @app.route("/healthz", methods=["GET"])
 def healthz():
     return jsonify({"status": "ok"}), 200
 
 
+@app.route("/", methods=["GET"])
 @app.route("/status", methods=["GET"])
+@app.route("/settings", methods=["GET"])
 def status():
     try:
         payload = get_client().get_status()
-        data = payload.get("data") or {}
-        return (
-            jsonify(
-                {
-                    "status": "ok",
-                    "profile": data.get("profile"),
-                    "batteryBackupPercentage": data.get("batteryBackupPercentage"),
-                    "operationModeSubType": data.get("operationModeSubType"),
-                    "isBatteryChangePending": data.get("isBatteryChangePending"),
-                    "siteProfileStatus": data.get("siteProfileStatus"),
-                    "previousBatteryBackupPercentage": data.get(
-                        "previousBatteryBackupPercentage"
-                    ),
-                    "data": data,
-                }
-            ),
-            200,
-        )
+        return jsonify(_format_status_response(payload)), 200
     except Exception as exc:
         logger.exception("Failed to fetch Enphase battery profile status")
         return jsonify({"status": "error", "message": str(exc)}), 500

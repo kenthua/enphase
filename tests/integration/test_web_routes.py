@@ -13,10 +13,16 @@ import web
 def mock_enphase_client(monkeypatch):
     client = MagicMock()
     client.get_status.return_value = {
+        "timestamp": "2026-10-24T18:00:26.617179135Z",
         "data": {
             "profile": "self-consumption",
             "batteryBackupPercentage": 10,
             "operationModeSubType": "prioritize-energy",
+            "stormGuardState": "disabled",
+            "buybackExportPlan": "nem",
+            "veryLowSoc": 10,
+            "dtgControl": {"enabled": True},
+            "cfgControl": {"enabled": False},
             "isBatteryChangePending": False,
             "siteProfileStatus": "READY",
             "previousBatteryBackupPercentage": {
@@ -24,7 +30,7 @@ def mock_enphase_client(monkeypatch):
                 "backup_only": 100,
                 "ai_optimisation": 10,
             },
-        }
+        },
     }
     client.set_self_consumption.return_value = {
         "status": "ok",
@@ -61,15 +67,22 @@ def test_healthz_route(test_client):
     assert resp.get_json() == {"status": "ok"}
 
 
-def test_status_route(test_client, mock_enphase_client):
-    resp = test_client.get("/status")
+@pytest.mark.parametrize("endpoint", ["/", "/status", "/settings"])
+def test_status_and_settings_routes(test_client, mock_enphase_client, endpoint):
+    resp = test_client.get(endpoint)
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["status"] == "ok"
     assert body["profile"] == "self-consumption"
+    assert body["profileDisplayName"] == "Self-Consumption"
     assert body["batteryBackupPercentage"] == 10
+    assert body["stormGuardState"] == "disabled"
+    assert body["buybackExportPlan"] == "nem"
+    assert body["veryLowSoc"] == 10
+    assert body["exportToGridEnabled"] is True
+    assert body["chargeFromGridEnabled"] is False
     assert body["siteProfileStatus"] == "READY"
-    mock_enphase_client.get_status.assert_called_once()
+    mock_enphase_client.get_status.assert_called()
 
 
 def test_self_consumption_route(test_client, mock_enphase_client):

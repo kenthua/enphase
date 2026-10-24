@@ -17,7 +17,7 @@ COPY pyproject.toml uv.lock /app/
 RUN uv sync --frozen --no-dev --no-install-project && \
     rm -rf /root/.cache
 
-COPY src/enphase_client.py src/full_backup.py src/self_consumption.py src/ai_optimization.py src/web.py /app/
+COPY src/enphase_client.py src/full_backup.py src/self_consumption.py src/ai_optimization.py src/status.py src/web.py /app/
 
 EXPOSE 8080
 
